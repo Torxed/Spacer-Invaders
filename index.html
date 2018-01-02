@@ -132,12 +132,14 @@
 					else
 						this.y += 3;
 
+					// It's pretty slow to do this on every sprite update.
+					// But at least we limit it to the bullet. Should be event driven.
 					var collided = this.sprite_collide();
 					if (collided){
-						if(typeOf(collided) == Enemy.prototype && typeOf(this) != Enemy.prototype)
-							collided.attacked();
-						else if (typeOf(collided) == Player.prototype)
-							collided.attacked();
+						if(typeof collided.attacked !== undefined)
+							collided = collided.attacked(this.owner);
+						else
+							collided = false;
 					} 
 					
 					if (this.y < 0 || collided) {
@@ -170,9 +172,12 @@
 					this.y -= dy;
 				}
 
-				attacked () {
-					console.log('Player has been attacked! ' + this.life + ' lives left.');
-					this.life -= 1;
+				attacked (shooter) {
+					if(typeOf(shooter) == Enemy.prototype) {
+						this.life -= 1;
+						console.log('Player has been attacked! ' + this.life + ' lives left.');
+						return this;
+					}
 				}
 
 				pre_render() {
@@ -210,9 +215,39 @@
 					return false;
 				}
 
-				attacked () {
-					console.log('Enemy ' + this.index + ' died!');
-					delete(sprites[this.index])
+				attacked (shooter) {
+					if(typeOf(shooter) == Player.prototype) {
+						console.log('Enemy ' + this.index + ' died!');
+						delete(sprites[this.index])
+						return this;
+					}
+				}
+			}
+
+			class Breakable extends Sprite {
+				constructor (index, x=0, y=0) {
+					super(x, y);
+					this.index = index;
+					this.lives = 3;
+					this.width = 50;
+					this.height = 15;
+				}
+
+				attacked (shooter) {
+					if(typeOf(shooter) == Player.prototype || typeOf(shooter) == Enemy.prototype) {
+						console.log('Breakable was hit by ' + typeOf(shooter));
+						this.lives -= 1;
+						if (this.lives <= 0)
+							delete(sprites[this.index]);
+						return this;
+					}
+				}
+
+				draw () {
+					ct.beginPath();
+					ct.fillStyle = "#CB7333";
+					ct.rect(this.x, this.y, this.width, this.height);
+					ct.fill();
 				}
 			}
 
@@ -267,17 +302,29 @@
 				ct.fill();
 
 
-				var source_x = 60;
-				var source_y = 30;
-				for (var blocks=1; blocks<3; blocks++) {
-					var x = (source_x*blocks)+(source_x*3);
-					var y = source_y;
+				var x_offsets = [30, 30*6, 30*11];
+				var y_offset = 30;
+				var breakable_y_offset = settings.height-90;
+				for (var blocks=0; blocks<3; blocks++) {
+					var x = x_offsets[blocks];
+					var y = y_offset;
 					for(var i=0; i<9; i++) {
-						if(i !=0 && i%3==1) {
-							y+=35;
-							x=source_x*blocks;
+						if(i !=0 && i%3==0) {
+							y+=30;
+							x = x_offsets[blocks];
 						}
-						sprites[sprites.length] = new Enemy(sprites.length, x+=35, y);
+						console.log('Block: ' + blocks + ', X: ' + x + ', Y: ' + y);
+						sprites[sprites.length] = new Enemy(sprites.length, x+=30, y);
+					}
+
+					x = x_offsets[blocks];
+					y = breakable_y_offset;
+					for (var i=0; i<4; i++) {
+						if(i !=0 && i%2==0) {
+							y+=15;
+							x = x_offsets[blocks];
+						}
+						sprites[sprites.length] = new Breakable(sprites.length, (x+=50)-25, y);
 					}
 				}
 
@@ -299,7 +346,7 @@
 					if (sprites[i] === undefined)
 						continue;
 					if(sprites[i].pre_render()) {
-						if(typeOf(sprites[i] == Enemy.prototype))
+						if(typeOf(sprites[i]) == Enemy.prototype)
 							enemies[enemies.length] = sprites[i];
 						sprites[i].draw();
 					}
