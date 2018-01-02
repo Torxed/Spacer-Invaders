@@ -1,6 +1,6 @@
 <html>
 	<head>
-		<title>Space Invaders by Anton Hvornum</title>
+		<title>Spacer Invaders by Anton Hvornum</title>
 		<style>
 			p {
 				font-size:12px;
@@ -22,7 +22,9 @@
 		<script type="text/javascript">
 			var c = null;
 			var ct = null;
-			var settings = {width: 500, height: 400, timers: [], keys: {}, gameOver: false};
+			var settings = {width: 500, height: 400, timers: [], keys: {}, gameOver: false, lives: 1};
+			var statistics = {shots_fired:0, time:null, lives: settings.lives, enemies_left: 27};
+			var highscore = null;
 
 			var player = null;
 			var sprites = [];
@@ -154,7 +156,7 @@
 			class Player extends Sprite {
 				constructor (width=30, height=30) {
 					super((settings.width/2)-(width/2), settings.height-height);
-					this.life = 5;
+					this.lives = settings.lives;
 					this.image = new Image();
 					this.image.src = "resources/images/space_invader_player.png"
 					this.last_fire = time()-2;
@@ -162,6 +164,7 @@
 
 				shoot () {
 					if (time() - this.last_fire > 1) {
+						statistics.shots_fired += 1;
 						sprites[sprites.length] = new Bullet(sprites.length, this, this.x+(this.width/2), this.y);
 						this.last_fire = time();
 					}
@@ -174,10 +177,13 @@
 
 				attacked (shooter) {
 					if(typeOf(shooter) == Enemy.prototype) {
-						this.life -= 1;
-						console.log('Player has been attacked! ' + this.life + ' lives left.');
-						if (this.life <= 0)
+						this.lives -= 1;
+						console.log('Player has been attacked! ' + this.lives + ' lives left.');
+						if (this.lives <= 0) {
 							settings.gameOver = true;
+							statistics.time = time() - statistics.time;
+							getHighscore();
+						}
 						return this;
 					}
 				}
@@ -266,6 +272,22 @@
 				}
 			}
 
+			function getHighscore() {
+				var xhr = new XMLHttpRequest();
+				xhr.open('POST', 'https://hvornum.se/game_statistics.php?game=spacer_invader', true);
+				xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+				xhr.onload = function() {
+					var status = xhr.status;
+					if (status === 200) {
+						highscore = JSON.parse(xhr.response);
+						window.clearInterval(settings.timers['highscore']);
+					} else {
+						console.log('Failed to load the highscore');
+					}
+				};
+				xhr.send(JSON.stringify(statistics));
+			}
+
 			function typeOf(obj) {
 				if(obj === undefined)
 					return null;
@@ -303,6 +325,7 @@
 
 			function setupGame() {
 				endGame();
+				statistics.time = time();
 
 				var gameArea = document.getElementById('gameArea');
 				player = new Player()
@@ -343,7 +366,7 @@
 							y+=15;
 							x = x_offsets[blocks];
 						}
-						sprites[sprites.length] = new Breakable(sprites.length, (x+=50)-25, y);
+						//sprites[sprites.length] = new Breakable(sprites.length, (x+=50)-25, y);
 					}
 				}
 
@@ -371,16 +394,35 @@
 							sprites[i].draw();
 						}
 					}
+					statistics.enemies_left = enemies.length;
+
+					if(enemies.length <= 0) {
+						settings.gameOver = true;
+						statistics.time = time() - statistics.time;
+						getHighscore()
+					}
 				} else {
 					ct.fillStyle = "black";
-					ct.fillText("Game Over!", (settings.width/2)-30, (settings.height/2)-8); 					
+					ct.fillText("Game Over!", (settings.width/2)-30, (settings.height/2)-8); 
+
+					var y = (settings.height/2)+30;
+					var x = (settings.width/2)-220;
+					ct.fillText("Highscore:", x, y);
+					y+= 18
+					if(highscore) {
+						for(var i=0; i<5; i++) {
+							if(highscore[i] === undefined)
+								continue;
+							var data = JSON.parse(highscore[i].data);
+							ct.fillText("#"+(i+1)+": " + data.shots_fired + " shots fired, " + (27-data.enemies_left) + " enemies killed in " + data.time + " seconds.", x, y);
+							y += 18;
+						}
+					}				
 				}
 
 				ct.fillStyle = "black";
-				ct.fillText("Enemies left: " + enemies.length, 10, settings.height-10); 
-
-				ct.fillStyle = "black";
-				ct.fillText("Hull armor: " + player.life, 180, settings.height-10); 
+				ct.fillText("Enemies left: " + enemies.length, 10, settings.height-10);
+				ct.fillText("Hull armor: " + player.lives, 180, settings.height-10);
 			}
 
 			window.onload = function() {
@@ -391,7 +433,7 @@
 		</script>
 	</head>
 	<body>
-		<h1>Space Invaders</h1>
+		<h1>Spacer Invaders</h1>
 		<p>by Anton Hvornum</p>
 		<div id="gameArea">
 		</div>
