@@ -186,7 +186,11 @@
 				}
 
 				move (dx, dy) {
+					if(this.x - dx < 0 || this.x -dx > settings.width-this.width)
+						return
 					this.x -= dx;
+					if(this.y - dy < 0 || this.y -dy > settings.height-this.width)
+						return
 					this.y -= dy;
 				}
 
