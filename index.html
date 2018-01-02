@@ -1,0 +1,331 @@
+<html>
+	<head>
+		<title>Space Invaders by Anton Hvornum</title>
+		<style>
+			p {
+				font-size:12px;
+				font-family: consolas;
+			}
+			h1 {
+				font-size:32px;
+				font-family: consolas;
+				font-weight: bold;
+				margin-bottom:0;
+				padding-bottom:0;
+			}
+			#gameArea {
+				border: 2px solid #000000;
+				width: 500px;
+				height: 400px;
+			}
+		</style>
+		<script type="text/javascript">
+			var c = null;
+			var ct = null;
+			var settings = {width: 500, height: 400, timers: [], keys: {}};
+
+			var player = null;
+			var sprites = [];
+			var enemies = [];
+
+			class Sprite {
+				constructor (x=0, y=0) {
+					this.x = x;
+					this.y = y;
+					this.width = 30;
+					this.height = 30;
+					this.color = '#000000';
+				}
+
+				pre_render() {
+					return true; // Do nothing by default
+				}
+
+				inside(x, y) {
+					if (y >= this.y && y <= this.y+this.height) {
+						if (x >= this.x && x <= this.x+this.width) {
+							return this;
+						}
+					}
+					return null;
+				}
+
+				draw() {
+					ct.beginPath();
+					ct.arc(this.x, this.y, (this.width+this.height)/2, 0, 2*Math.PI);
+					ct.fillStyle = this.color;
+					ct.fill();
+					ct.closePath();
+				}
+			}
+
+			class EnemySprite extends Sprite {
+				constructor (x=0, y=0) {
+					super(x, y);
+					this.settings = {
+									scale: 2,
+									offset_pixels: {x: 4, y: 7},
+									matrix: [
+											[0,4], [0, 5], [0, 6], [0, 7],
+											[1, 3], [1, 4],
+											[2, 0], [2, 2], [2, 3], [2, 4], [2, 5], [2, 6], [2, 7],
+											[3, 1], [3, 2], [3, 4], [3, 5], [3, 6], [3, 8], // Left eye
+											[4, 2], [4, 3], [4, 4], [4, 5], [4, 6], [4, 8],
+											[5, 2], [5, 3], [5, 4], [5, 5], [5, 6], // Center piece || From now on, we could just mirror this.
+											[6, 2], [6, 3], [6, 4], [6, 5], [6, 6], [6, 8],
+											[7, 1], [7, 2], [7, 4], [7, 5], [7, 6], [7, 8], // Righ eye
+											[8, 0], [8, 2], [8, 3], [8, 4], [8, 5], [8, 6], [8, 7],
+											[9, 3], [9, 4],
+											[10,4], [10, 5], [10, 6], [10, 7]
+											]};
+				}
+
+				draw () {
+					var x = 0;
+					var y = 0;
+
+					ct.beginPath();
+					for(var i=0; i<this.settings.matrix.length; i++) {
+						// Use the:
+						//      overall enemy X position
+						//    + offset.x (to center the image)
+						//    + matrix pixel-art position ([0] being x and [1] being y)
+						//    * scale
+						x = this.x + this.settings.offset_pixels.x + (this.settings.matrix[i][0] * this.settings.scale);
+						y = this.y + this.settings.offset_pixels.y + (this.settings.matrix[i][1] * this.settings.scale);
+
+
+						ct.rect(x, y, 1*this.settings.scale, 1*this.settings.scale);
+					}
+					ct.fillStyle = this.color;
+					ct.fill();
+					ct.closePath();
+				}
+			}
+
+			class Bullet extends Sprite {
+				constructor (index, owner, x=0, y=0) {
+					super(x, y);
+					this.index = index;
+					this.owner = owner;
+					this.color = '#FF0000';
+					this.width = 3;
+					this.height = 3;
+				}
+
+				sprite_collide() {
+					for(var i=0; i < sprites.length; i++) {
+						if(i==this.index || sprites[i] === undefined)
+							continue
+
+						if(sprites[i].inside(this.x, this.y))
+							return sprites[i];
+					}
+					if(player.inside(this.x, this.y))
+						return player;
+					return null;
+				}
+
+				pre_render() {
+					if (typeOf(this.owner) == Player.prototype)
+						this.y -= 3;
+					else
+						this.y += 3;
+
+					var collided = this.sprite_collide();
+					if (collided){
+						if(typeOf(collided) == Enemy.prototype && typeOf(this) != Enemy.prototype)
+							collided.attacked();
+						else if (typeOf(collided) == Player.prototype)
+							collided.attacked();
+					} 
+					
+					if (this.y < 0 || collided) {
+						delete(sprites[this.index]);
+						return false;
+					}
+
+					return true;
+				}
+			}
+
+			class Player extends Sprite {
+				constructor (width=30, height=30) {
+					super((settings.width/2)-(width/2), settings.height-height);
+					this.life = 5;
+					this.image = new Image();
+					this.image.src = "resources/images/space_invader_player.png"
+					this.last_fire = time()-2;
+				}
+
+				shoot () {
+					if (time() - this.last_fire > 1) {
+						sprites[sprites.length] = new Bullet(sprites.length, this, this.x+(this.width/2), this.y);
+						this.last_fire = time();
+					}
+				}
+
+				move (dx, dy) {
+					this.x -= dx;
+					this.y -= dy;
+				}
+
+				attacked () {
+					console.log('Player has been attacked! ' + this.life + ' lives left.');
+					this.life -= 1;
+				}
+
+				pre_render() {
+					if(settings.keys[39] !== undefined ||  settings.keys[68] !== undefined) {
+						this.move(-3, 0);
+					} else if(settings.keys[37] !== undefined ||  settings.keys[65] !== undefined) {
+						this.move(3, 0);
+					}
+
+					if(settings.keys[32] !== undefined ||  settings.keys[17] !== undefined) {
+						this.shoot();
+					}
+				}
+
+				draw () {
+					ct.beginPath();
+					ct.drawImage(this.image, this.x, this.y);
+					ct.closePath();
+				}
+			}
+
+			class Enemy extends EnemySprite {
+				constructor (index, x=0, y=0) {
+					super(x, y);
+					this.index = index;
+					this.last_fire = time()-2;
+				}
+
+				shoot () {
+					if (time() - this.last_fire > 1) {
+						sprites[sprites.length] = new Bullet(sprites.length, this, this.x+(this.width/2), this.y+this.height+10);
+						this.last_fire = time();
+						return true;
+					}
+					return false;
+				}
+
+				attacked () {
+					console.log('Enemy ' + this.index + ' died!');
+					delete(sprites[this.index])
+				}
+			}
+
+			function randomEnemyFire() {
+				var source_enemy = randint(0, sprites.length);
+				if(sprites[source_enemy] === undefined)
+					randomEnemyFire();
+
+				if(typeOf(sprites[source_enemy]) == Enemy.prototype) {
+					if(sprites[source_enemy].shoot())
+						return true;
+				}
+			}
+
+			function typeOf(obj) {
+				if(obj === undefined)
+					return null;
+				else if(obj === null)
+					return null;
+				return Object.getPrototypeOf(obj);
+			}
+
+			function randint(min, max) {
+				return parseInt(Math.random() * (max - min) + min);
+			}
+
+			function time() {
+				return Math.round(new Date().getTime()/1000);
+			}
+
+			function keyUpHandler(e) {
+				if(settings.keys[e.keyCode] !== undefined)
+					delete(settings.keys[e.keyCode]);
+			}
+
+			function keyDownHandler(e) {
+				settings.keys[e.keyCode] = true;
+			}
+
+			function setupGame() {
+				var gameArea = document.getElementById('gameArea');
+				player = new Player()
+
+				var c = document.createElement("canvas");
+				c.id = "gameWindow";
+				c.width = settings.width;
+				c.height = settings.height;
+				
+				ct = c.getContext('2d');
+				ct.fillStyle = "#FFFFFF";
+				ct.rect(0, 0, 800, 800);
+				ct.fill();
+
+
+				var source_x = 60;
+				var source_y = 30;
+				for (var blocks=1; blocks<3; blocks++) {
+					var x = (source_x*blocks)+(source_x*3);
+					var y = source_y;
+					for(var i=0; i<9; i++) {
+						if(i !=0 && i%3==1) {
+							y+=35;
+							x=source_x*blocks;
+						}
+						sprites[sprites.length] = new Enemy(sprites.length, x+=35, y);
+					}
+				}
+
+				settings.timers['render'] = setInterval(render, 10);
+				settings.timers['enemyFire'] = setInterval(randomEnemyFire, 1000);
+				gameArea.appendChild(c);
+			}
+
+			function render() {
+				ct.clearRect(0, 0, settings.width, settings.height);
+
+				if(player) {
+					player.pre_render();
+					player.draw();
+				}
+
+				enemies = [];
+				for (var i=0; i < sprites.length; i++) {
+					if (sprites[i] === undefined)
+						continue;
+					if(sprites[i].pre_render()) {
+						if(typeOf(sprites[i] == Enemy.prototype))
+							enemies[enemies.length] = sprites[i];
+						sprites[i].draw();
+					}
+				}
+
+				ct.font = "16px Consolas";
+				ct.fillStyle = "black";
+				ct.fillText("Enemies left: " + enemies.length, 10, settings.height-10); 
+
+				ct.font = "16px Consolas";
+				ct.fillStyle = "black";
+				ct.fillText("Hull armor: " + player.life, 180, settings.height-10); 
+			}
+
+			window.onload = function() {
+				setupGame();
+				document.addEventListener("keydown", keyDownHandler, false);
+				document.addEventListener("keyup", keyUpHandler, false);
+			}
+		</script>
+	</head>
+	<body>
+		<h1>Space Invaders</h1>
+		<p>by Anton Hvornum</p>
+		<div id="gameArea">
+		</div>
+		<p><b>Controls:</b> SPACE or RIGHT CTRL to fire. Move with arrowkeys or 'A' and 'D'</p>
+	</body>
+</html>
