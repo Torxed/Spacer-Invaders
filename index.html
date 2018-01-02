@@ -22,7 +22,7 @@
 		<script type="text/javascript">
 			var c = null;
 			var ct = null;
-			var settings = {width: 500, height: 400, timers: [], keys: {}};
+			var settings = {width: 500, height: 400, timers: [], keys: {}, gameOver: false};
 
 			var player = null;
 			var sprites = [];
@@ -176,6 +176,8 @@
 					if(typeOf(shooter) == Enemy.prototype) {
 						this.life -= 1;
 						console.log('Player has been attacked! ' + this.life + ' lives left.');
+						if (this.life <= 0)
+							settings.gameOver = true;
 						return this;
 					}
 				}
@@ -235,7 +237,6 @@
 
 				attacked (shooter) {
 					if(typeOf(shooter) == Player.prototype || typeOf(shooter) == Enemy.prototype) {
-						console.log('Breakable was hit by ' + typeOf(shooter));
 						this.lives -= 1;
 						if (this.lives <= 0)
 							delete(sprites[this.index]);
@@ -287,23 +288,39 @@
 			}
 
 			function keyDownHandler(e) {
-				settings.keys[e.keyCode] = true;
+				if(settings.gameOver && (e.keyCode == 32 || e.keyCode == 17))
+					setupGame();
+				else
+					settings.keys[e.keyCode] = true;
+			}
+
+			function endGame() {
+				if(settings.timers['render'] !== undefined)
+					window.clearInterval(settings.timers['render']);
+				if(settings.timers['enemyFire'] !== undefined)
+					window.clearInterval(settings.timers['enemyFire']);
 			}
 
 			function setupGame() {
+				endGame();
+
 				var gameArea = document.getElementById('gameArea');
 				player = new Player()
+				sprites = [];
 
-				var c = document.createElement("canvas");
-				c.id = "gameWindow";
-				c.width = settings.width;
-				c.height = settings.height;
-				
-				ct = c.getContext('2d');
-				ct.fillStyle = "#FFFFFF";
-				ct.rect(0, 0, 800, 800);
-				ct.fill();
+				if(document.getElementById('gameWindow') === null) {
+					var c = document.createElement("canvas");
+					c.id = "gameWindow";
+					c.width = settings.width;
+					c.height = settings.height;
+					
+					ct = c.getContext('2d');
+					ct.fillStyle = "#FFFFFF";
+					ct.rect(0, 0, 800, 800);
+					ct.fill();
 
+					gameArea.appendChild(c);
+				}
 
 				var x_offsets = [30, 30*6, 30*11];
 				var y_offset = 30;
@@ -316,7 +333,6 @@
 							y+=30;
 							x = x_offsets[blocks];
 						}
-						console.log('Block: ' + blocks + ', X: ' + x + ', Y: ' + y);
 						sprites[sprites.length] = new Enemy(sprites.length, x+=30, y);
 					}
 
@@ -331,35 +347,38 @@
 					}
 				}
 
+				settings.gameOver = false;
+
 				settings.timers['render'] = setInterval(render, 10);
 				settings.timers['enemyFire'] = setInterval(randomEnemyFire, 1000);
-				gameArea.appendChild(c);
 			}
 
 			function render() {
 				ct.clearRect(0, 0, settings.width, settings.height);
+				ct.font = "16px Consolas";
 
-				if(player) {
+				if(player && !settings.gameOver) {
 					player.pre_render();
 					player.draw();
-				}
 
-				enemies = [];
-				for (var i=0; i < sprites.length; i++) {
-					if (sprites[i] === undefined)
-						continue;
-					if(sprites[i].pre_render()) {
-						if(typeOf(sprites[i]) == Enemy.prototype)
-							enemies[enemies.length] = sprites[i];
-						sprites[i].draw();
+					enemies = [];
+					for (var i=0; i < sprites.length; i++) {
+						if (sprites[i] === undefined)
+							continue;
+						if(sprites[i].pre_render()) {
+							if(typeOf(sprites[i]) == Enemy.prototype)
+								enemies[enemies.length] = sprites[i];
+							sprites[i].draw();
+						}
 					}
+				} else {
+					ct.fillStyle = "black";
+					ct.fillText("Game Over!", (settings.width/2)-30, (settings.height/2)-8); 					
 				}
 
-				ct.font = "16px Consolas";
 				ct.fillStyle = "black";
 				ct.fillText("Enemies left: " + enemies.length, 10, settings.height-10); 
 
-				ct.font = "16px Consolas";
 				ct.fillStyle = "black";
 				ct.fillText("Hull armor: " + player.life, 180, settings.height-10); 
 			}
