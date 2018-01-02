@@ -22,7 +22,7 @@
 		<script type="text/javascript">
 			var c = null;
 			var ct = null;
-			var settings = {width: 500, height: 400, timers: [], keys: {}, gameOver: false, lives: 1};
+			var settings = {width: 500, height: 400, timers: [], keys: {}, gameOver: false, lives: 5};
 			var statistics = {shots_fired:0, time:null, lives: settings.lives, enemies_left: 27};
 			var highscore = null;
 
@@ -366,7 +366,7 @@
 							y+=15;
 							x = x_offsets[blocks];
 						}
-						//sprites[sprites.length] = new Breakable(sprites.length, (x+=50)-25, y);
+						sprites[sprites.length] = new Breakable(sprites.length, (x+=50)-25, y);
 					}
 				}
 
