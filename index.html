@@ -245,9 +245,12 @@
 
 				draw () {
 					ct.beginPath();
+					ct.strokeStyle="#FFFFFF";
 					ct.fillStyle = "#CB7333";
 					ct.rect(this.x, this.y, this.width, this.height);
 					ct.fill();
+					ct.stroke();
+					ct.closePath();
 				}
 			}
 
