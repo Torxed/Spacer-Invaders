@@ -30,6 +30,20 @@
 			var sprites = [];
 			var enemies = [];
 
+			/* == Sprites
+
+			  Sprites are a collection of graphical objects.
+			  They all inherit the basic Sprite class, it gives
+			  each object a X, Y, Width and Height property.
+			  The basic Sprite class also has a render, inside and pre-render function.
+
+			  EnemySprite	- Is the graphical representation of the enemy (does not have lives etc).
+			  Bullet		- Is the bullet graphics
+			  Player		- The player graphics (but also manages lives, fireing etc)
+			  Enemy			- This inherits the EnemySprite class for graphical stuff, but this class manages lives etc.
+			  Breakable		- The graphical class for the breakable walls, also keeps track of lives.
+			*/
+
 			class Sprite {
 				constructor (x=0, y=0) {
 					this.x = x;
@@ -106,13 +120,14 @@
 			}
 
 			class Bullet extends Sprite {
-				constructor (index, owner, x=0, y=0) {
+				constructor (index, owner, speed=3, x=0, y=0) {
 					super(x, y);
 					this.index = index;
 					this.owner = owner;
 					this.color = '#FF0000';
 					this.width = 3;
 					this.height = 3;
+					this.speed = speed;
 				}
 
 				sprite_collide() {
@@ -130,9 +145,9 @@
 
 				pre_render() {
 					if (typeOf(this.owner) == Player.prototype)
-						this.y -= 3;
+						this.y -= this.speed;
 					else
-						this.y += 3;
+						this.y += this.speed;
 
 					// It's pretty slow to do this on every sprite update.
 					// But at least we limit it to the bullet. Should be event driven.
@@ -164,9 +179,9 @@
 
 				shoot () {
 					if (time() - this.last_fire > 0.5) {
-						statistics.shots_fired += 1;
-						sprites[sprites.length] = new Bullet(sprites.length, this, this.x+(this.width/2), this.y);
 						this.last_fire = time();
+						statistics.shots_fired += 1;
+						sprites[sprites.length] = new Bullet(sprites.length, this, 3, this.x+(this.width/2), this.y);
 					}
 				}
 
@@ -216,7 +231,7 @@
 
 				shoot () {
 					if (time() - this.last_fire > 1) {
-						sprites[sprites.length] = new Bullet(sprites.length, this, this.x+(this.width/2), this.y+this.height+10);
+						sprites[sprites.length] = new Bullet(sprites.length, this, 4, this.x+(this.width/2), this.y+this.height+10);
 						this.last_fire = time();
 						return true;
 					}
@@ -262,6 +277,8 @@
 			}
 
 			function randomEnemyFire() {
+				// A function called by setInterval each X seconds.
+				// This function generates one bullet from one random enemy.
 				var source_enemy = randint(0, sprites.length);
 				if(sprites[source_enemy] === undefined)
 					randomEnemyFire();
@@ -273,6 +290,7 @@
 			}
 
 			function getHighscore() {
+				// A function that posts the current stats and retrieves a live high-score.
 				var xhr = new XMLHttpRequest();
 				xhr.open('POST', 'https://hvornum.se/game_statistics.php?game=spacer_invader', true);
 				xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
@@ -289,6 +307,7 @@
 			}
 
 			function typeOf(obj) {
+				// same as typeof really, but some logic to it.
 				if(obj === undefined)
 					return null;
 				else if(obj === null)
@@ -297,10 +316,12 @@
 			}
 
 			function randint(min, max) {
+				// Because JavaScript sucks.
 				return parseInt(Math.random() * (max - min) + min);
 			}
 
 			function time() {
+				// Because JavaScript sucks.
 				return Math.round(new Date().getTime()/1000);
 			}
 
@@ -317,6 +338,7 @@
 			}
 
 			function endGame() {
+				// Essentially just clears timers for now.
 				if(settings.timers['render'] !== undefined)
 					window.clearInterval(settings.timers['render']);
 				if(settings.timers['enemyFire'] !== undefined)
@@ -324,14 +346,16 @@
 			}
 
 			function setupGame() {
+				// End the last game,
+				// Recreate the player object, clear the sprites and set a new start time.
 				endGame();
-				statistics.time = time();
-
-				var gameArea = document.getElementById('gameArea');
 				player = new Player()
 				sprites = [];
+				statistics.time = time();
 
+				// If the gameWindow is undefined (first launch), create the canvas.
 				if(document.getElementById('gameWindow') === null) {
+					var gameArea = document.getElementById('gameArea');
 					var c = document.createElement("canvas");
 					c.id = "gameWindow";
 					c.width = settings.width;
@@ -345,6 +369,8 @@
 					gameArea.appendChild(c);
 				}
 
+				// Create 3 sections / blocks.
+				// Each with a offset based onf x_offsets
 				var x_offsets = [30, 30*6, 30*11];
 				var y_offset = 30;
 				var breakable_y_offset = settings.height-90;
@@ -356,6 +382,7 @@
 							y+=30;
 							x = x_offsets[blocks];
 						}
+						// Create the Enemy()
 						sprites[sprites.length] = new Enemy(sprites.length, x+=30, y);
 					}
 
@@ -366,14 +393,16 @@
 							y+=15;
 							x = x_offsets[blocks];
 						}
+						// Create the Breakable()
 						sprites[sprites.length] = new Breakable(sprites.length, (x+=50)-25, y);
 					}
 				}
 
 				settings.gameOver = false;
 
+				// Initiate the render loop and the random enemy fire loop.
 				settings.timers['render'] = setInterval(render, 10);
-				settings.timers['enemyFire'] = setInterval(randomEnemyFire, 1000);
+				settings.timers['enemyFire'] = setInterval(randomEnemyFire, 800);
 			}
 
 			function render() {
