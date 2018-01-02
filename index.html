@@ -22,7 +22,7 @@
 		<script type="text/javascript">
 			var c = null;
 			var ct = null;
-			var settings = {width: 500, height: 400, timers: [], keys: {}, gameOver: false, lives: 5};
+			var settings = {width: 500, height: 400, timers: [], keys: {}, gameOver: false, lives: 5, enemy_direction: 'right', next_direction: 'right'};
 			var statistics = {shots_fired:0, time:null, lives: settings.lives, enemies_left: 27};
 			var highscore = null;
 
@@ -153,7 +153,8 @@
 					// But at least we limit it to the bullet. Should be event driven.
 					var collided = this.sprite_collide();
 					if (collided){
-						if(typeof collided.attacked !== undefined)
+						if (typeof collided.attacked === 'function')
+						//if (typeof collided.attacked !== undefined)
 							collided = collided.attacked(this.owner);
 						else
 							collided = false;
@@ -240,6 +241,19 @@
 						return true;
 					}
 					return false;
+				}
+
+				pre_render () {
+					if(settings.enemy_direction == 'right') {
+						this.x += 2;
+						if (this.x+2+this.width > settings.width)
+							settings.next_direction = 'left';
+					} else {
+						this.x -= 2;
+						if (this.x-2 < 0)
+							settings.next_direction = 'right';
+					}
+					return true;
 				}
 
 				attacked (shooter) {
@@ -430,6 +444,7 @@
 					statistics.enemies_left = enemies.length;
 
 					if(enemies.length <= 0) {
+						console.log('Game over no enemies left');
 						settings.gameOver = true;
 						statistics.time = time() - statistics.time;
 						getHighscore()
@@ -456,6 +471,8 @@
 				ct.fillStyle = "black";
 				ct.fillText("Enemies left: " + enemies.length, 10, settings.height-10);
 				ct.fillText("Hull armor: " + player.lives, 180, settings.height-10);
+
+				settings.enemy_direction = settings.next_direction;
 			}
 
 			window.onload = function() {
