@@ -221,9 +221,16 @@
 				}
 
 				draw () {
-					ct.beginPath();
 					ct.drawImage(this.image, this.x, this.y);
-					ct.closePath();
+					if(this.lives > 1) {
+						ct.beginPath();
+						ct.arc(this.x+(this.width/2), this.y+(this.height/2), 20, 0, 2*Math.PI);
+						ct.lineWidth=this.lives;
+						ct.strokeStyle = 'lightgreen';
+						ct.stroke();
+						ct.closePath();
+						ct.lineWidth=2;
+					}
 				}
 			}
 
