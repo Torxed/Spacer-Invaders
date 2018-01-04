@@ -176,10 +176,11 @@
 					this.image = new Image();
 					this.image.src = "resources/images/space_invader_player.png"
 					this.last_fire = time()-2;
+					this.reload_time = 0.5;
 				}
 
 				shoot () {
-					if (time() - this.last_fire > 0.5) {
+					if (time() - this.last_fire > this.reload_time) {
 						this.last_fire = time();
 						statistics.shots_fired += 1;
 						sprites[sprites.length] = new Bullet(sprites.length, this, 3, this.x+(this.width/2), this.y);
@@ -229,8 +230,17 @@
 						ct.strokeStyle = 'lightgreen';
 						ct.stroke();
 						ct.closePath();
-						ct.lineWidth=2;
 					}
+
+					if (time() - this.last_fire < this.reload_time) {
+						ct.beginPath();
+						ct.arc(this.x+(this.width/2), this.y+(this.height/2), 18, 0, ((2*Math.PI)/this.reload_time)*(time()-this.last_fire));
+						ct.lineWidth=2;
+						ct.strokeStyle = '#FF0000';
+						ct.stroke();
+						ct.closePath();
+					}
+					ct.lineWidth=2;
 				}
 			}
 
@@ -347,7 +357,7 @@
 
 			function time() {
 				// Because JavaScript sucks.
-				return Math.round(new Date().getTime()/1000);
+				return new Date().getTime()/1000;
 			}
 
 			function keyUpHandler(e) {
